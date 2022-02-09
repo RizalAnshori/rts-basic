@@ -1,4 +1,5 @@
 using Mirror;
+using RTS.Combat;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,13 +11,18 @@ namespace RTS.UnitNamespace
     public class Unit : NetworkBehaviour
     {
         #region NormalVar
+        [SerializeField] private Health health;
         [SerializeField] private UnitMovement unitMovement;
+        [SerializeField] private Targeter targeter;
         [SerializeField] private GameObject selectedHighlightObj;
+        [SerializeField] private int resourceCost = 10;
 
         [SerializeField] private UnityEvent onSelected = null;
         [SerializeField] private UnityEvent onDeselected = null;
 
         public UnitMovement UnitMovement { get { return unitMovement; } }
+        public Targeter Targeter { get { return targeter; } }
+        public int ResourceCost { get { return resourceCost; } }
 
         public static event Action<Unit> ServerOnUnitSpawned;
         public static event Action<Unit> ServerOnUnitDespawned;
@@ -33,12 +39,20 @@ namespace RTS.UnitNamespace
         {
             base.OnStartServer();
             ServerOnUnitSpawned?.Invoke(this);
+            health.ServerOnDie += OnServerOnDie;
         }
 
         public override void OnStopServer()
         {
             base.OnStopServer();
             ServerOnUnitDespawned?.Invoke(this);
+            health.ServerOnDie -= OnServerOnDie;
+        }
+
+        [Server]
+        private void OnServerOnDie()
+        {
+            NetworkServer.Destroy(this.gameObject);
         }
         #endregion
 
@@ -59,20 +73,14 @@ namespace RTS.UnitNamespace
             selectedHighlightObj.SetActive(false);
         }
 
-        public override void OnStartClient()
+        public override void OnStartAuthority()
         {
-            base.OnStartClient();
-            Debug.Log($"Called in : {connectionToClient.identity.gameObject.name}");
-            if (!isClientOnly || !hasAuthority) return;
-
             AuthorityOnUnitSpawned?.Invoke(this);
         }
 
         public override void OnStopClient()
         {
-            base.OnStopClient();
-
-            if (!isClientOnly || !hasAuthority) return;
+            if (!hasAuthority) return;
 
             AuthorityOnUnitDespawned?.Invoke(this);
         }

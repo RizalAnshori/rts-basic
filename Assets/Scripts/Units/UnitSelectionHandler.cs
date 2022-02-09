@@ -24,7 +24,19 @@ namespace RTS.UnitNamespace
         void Start()
         {
             mainCamera = Camera.main;
+
+            player = NetworkClient.connection.identity.GetComponent<RTSPlayer>();
             //player = NetworkClient.connection.identity.GetComponent<RTSPlayer>();
+
+            Unit.AuthorityOnUnitDespawned += OnAuthorityOnUnitDespawned;
+            GameOverHandler.ClientOnGameOver += ClientOnGameOverHandler;
+        }
+
+
+        private void OnDestroy()
+        {
+            Unit.AuthorityOnUnitDespawned -= OnAuthorityOnUnitDespawned;
+            GameOverHandler.ClientOnGameOver -= ClientOnGameOverHandler;
         }
 
         // Update is called once per frame
@@ -68,10 +80,6 @@ namespace RTS.UnitNamespace
             Vector2 min = unitSelectionArea.anchoredPosition - (unitSelectionArea.sizeDelta / 2f);
             Vector2 max = unitSelectionArea.anchoredPosition + (unitSelectionArea.sizeDelta / 2f);
 
-            if (player == null)
-            {
-                player = NetworkClient.connection.identity.GetComponent<RTSPlayer>();
-            }
 
             foreach (Unit unit in player.MyUnits)
             {
@@ -124,6 +132,16 @@ namespace RTS.UnitNamespace
             startPosition = Mouse.current.position.ReadValue();
 
             UpdateSelectionArea();
+        }
+
+        private void OnAuthorityOnUnitDespawned(Unit obj)
+        {
+            selectedUnits.Remove(obj);
+        }
+
+        private void ClientOnGameOverHandler(string obj)
+        {
+            enabled = false;
         }
     }
 }

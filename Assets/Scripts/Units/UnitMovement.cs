@@ -1,4 +1,6 @@
 using Mirror;
+using RTS.Combat;
+using RTS.Networking;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,6 +13,8 @@ namespace RTS.UnitNamespace
     {
         #region NormalVar
         [SerializeField] private NavMeshAgent agent = null;
+        [SerializeField] private Targeter targeter;
+        [SerializeField] private float chaseRange = 10f;
 
         //private Camera mainCamera;
         #endregion
@@ -19,9 +23,36 @@ namespace RTS.UnitNamespace
         #endregion
 
         #region Server
+        public override void OnStartServer()
+        {
+            GameOverHandler.ServerOnGameOver += ServerOnGameOverHandler;
+        }
+
+        public override void OnStopServer()
+        {
+            GameOverHandler.ServerOnGameOver -= ServerOnGameOverHandler;
+        }
+    
+
         [ServerCallback]
         private void Update()
         {
+            Targetable target = targeter.Target;
+
+            if(target != null)
+            {
+                if((target.transform.position - transform.position).sqrMagnitude > chaseRange * chaseRange)
+                {
+                    agent.SetDestination(target.transform.position);
+                }
+                else if(agent.hasPath)
+                {
+                    agent.ResetPath();
+                }
+
+                return;
+            }
+
             if (!agent.hasPath) return;
 
             if (agent.remainingDistance > agent.stoppingDistance) return;
@@ -32,12 +63,26 @@ namespace RTS.UnitNamespace
         [Command]
         public void CmdMove(Vector3 position)
         {
+            ServerMove(position);
+        }
+
+        [Server]
+        public void ServerMove(Vector3 position)
+        {
+            targeter.ClearTarget();
+
             if (!NavMesh.SamplePosition(position, out NavMeshHit hit, 1f, NavMesh.AllAreas))
             {
                 return;
             }
 
             agent.SetDestination(hit.position);
+        }
+
+        [Server]
+        private void ServerOnGameOverHandler()
+        {
+            agent.ResetPath();
         }
         #endregion
 
